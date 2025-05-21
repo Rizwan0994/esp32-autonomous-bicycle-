@@ -396,37 +396,22 @@
                 }
                 map.flyTo({ center: vehicleLngLat, duration: 1000 });
             }
+            // User GPS Data (from stored userLocation)
+    if (userLocation) { // Check if userLocation is stored
+        document.getElementById('user-lat').innerText = parseFloat(userLocation.lat).toFixed(4);
+        document.getElementById('user-lng').innerText = parseFloat(userLocation.lng).toFixed(4);
 
-            // User GPS Data (if provided by ESP32)
-            if (data.user_gps) {
-                document.getElementById('user-lat').innerText = parseFloat(data.user_gps.lat).toFixed(4);
-                document.getElementById('user-lng').innerText = parseFloat(data.user_gps.lng).toFixed(4);
-
-                const userLngLat = [parseFloat(data.user_gps.lng), parseFloat(data.user_gps.lat)];
-                if (userMarker) {
-                    userMarker.setLngLat(userLngLat);
-                } else {
-                    userMarker = new mapboxgl.Marker({ color: '#FF0000' }) // Red marker for user
-                        .setLngLat(userLngLat)
-                        .addTo(map);
-                    userMarker.setPopup(new mapboxgl.Popup({ offset: 25 }).setText('User')); // Add a popup with label
-                }
-            }
-
-            // User GPS Data (if provided by ESP32)
-            if (data.user_gps) {
-                document.getElementById('user-lat').innerText = parseFloat(data.user_gps.lat).toFixed(4);
-                document.getElementById('user-lng').innerText = parseFloat(data.user_gps.lng).toFixed(4);
-
-                const userLngLat = [parseFloat(data.user_gps.lng), parseFloat(data.user_gps.lat)];
-                if (userMarker) {
-                    userMarker.setLngLat(userLngLat);
-                } else {
-                    userMarker = new mapboxgl.Marker({ color: '#FF0000' }) // Red marker for user
-                        .setLngLat(userLngLat)
-                        .addTo(map);
-                }
-            }
+        const userLngLat = [parseFloat(userLocation.lng), parseFloat(userLocation.lat)];
+        if (userMarker) {
+            userMarker.setLngLat(userLngLat);
+        } else {
+            userMarker = new mapboxgl.Marker({ color: '#FF0000' }) // Red marker for user
+                .setLngLat(userLngLat)
+                .addTo(map);
+            userMarker.setPopup(new mapboxgl.Popup({ offset: 25 }).setText('User')); // Add a popup with label
+        }
+    }
+           
 
 
             // Sensor Data
@@ -520,6 +505,7 @@
                 alert('Please enter valid numbers for Steering PID values.');
             }
         }
+        let userLocation = null; // Variable to store user's location
 
         function requestPickup() {
             if (navigator.geolocation) {
@@ -528,8 +514,9 @@
                         const userLat = position.coords.latitude;
                         const userLng = position.coords.longitude;
                         console.log('User Location (from browser):', userLat, userLng);
-                        sendCommand('request_pickup', { userLocation: { lat: userLat, lng: userLng } });
-                        alert('User pickup location updated.'); // Add this line
+                        userLocation = { lat: userLat, lng: userLng }; // Store user location
+                        sendCommand('request_pickup', { userLocation: userLocation });
+                        alert('User pickup location updated.');
                     },
                     function (error) {
                         alert('Error getting user location: ' + error.message + '. Please enter manually.');
