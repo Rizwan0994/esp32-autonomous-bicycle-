@@ -37,6 +37,7 @@
 <body>
     <div class="container">
         <h1>Autonomous Bicycle Dashboard</h1>
+        <p>ESP32 Module Status: <span id="esp32-connection-status">Disconnected</span></p>
 
         <div class="status-item">
             <strong>Current Action:</strong> <span id="current-action">Idle</span>
@@ -193,6 +194,23 @@
         websocket.onmessage = function(event) {
             var data = JSON.parse(event.data);
             console.log('Received from ESP32:', data); // Debugging
+            // Update ESP32 module connection status indicator
+            var esp32StatusElement = document.getElementById('esp32-connection-status');
+            if (data.isServerConnected !== undefined) {
+                if (data.isServerConnected) {
+                    esp32StatusElement.innerText = 'Connected';
+                    esp32StatusElement.style.color = 'green'; // Make the text green
+                } else {
+                    esp32StatusElement.innerText = 'Disconnected';
+                    esp32StatusElement.style.color = 'red'; // Make the text red
+                }
+                console.log('Updated ESP32 connection status:', data.isServerConnected); // Add console log
+            } else {
+                // Optional: Handle case where status is not in the message
+                esp32StatusElement.innerText = 'Status N/A';
+                esp32StatusElement.style.color = 'gray';
+                console.log('ESP32 connection status not provided in message.');
+            }
 
             // Update UI elements based on received data
             document.getElementById('ignition-status').innerText = data.ignition;
