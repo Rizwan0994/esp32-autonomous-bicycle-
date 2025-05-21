@@ -350,7 +350,7 @@
 
         websocket.onmessage = function (event) {
             var data = JSON.parse(event.data);
-            console.log('Received from ESP32:', data); // Debugging
+           // console.log('Received from ESP32:', data); // Debugging
             // Update ESP32 module connection status indicator
             var esp32StatusElement = document.getElementById('esp32-connection-status');
             if (data.isServerConnected !== undefined) {
@@ -394,25 +394,33 @@
                         .addTo(map);
                     vehicleMarker.setPopup(new mapboxgl.Popup({ offset: 25 }).setText('Vehicle')); // Add a popup with label
                 }
-                map.flyTo({ center: vehicleLngLat, duration: 1000 });
+                // Center map to include both vehicle and user if both are available
+                if (userLocation) {
+                    const bounds = new mapboxgl.LngLatBounds();
+                    bounds.extend(vehicleLngLat);
+                    bounds.extend([userLocation.lng, userLocation.lat]);
+                    map.fitBounds(bounds, { padding: 50, duration: 1000 });
+                } else {
+                    // If only vehicle location is available, center on the vehicle
+                    map.flyTo({ center: vehicleLngLat, duration: 1000 });
+                }
             }
+            console.log("userLocation",userLocation)
             // User GPS Data (from stored userLocation)
-    if (userLocation) { // Check if userLocation is stored
-        document.getElementById('user-lat').innerText = parseFloat(userLocation.lat).toFixed(4);
-        document.getElementById('user-lng').innerText = parseFloat(userLocation.lng).toFixed(4);
+            if (userLocation) { // Check if userLocation is stored
+                document.getElementById('user-lat').innerText = parseFloat(userLocation.lat).toFixed(4);
+                document.getElementById('user-lng').innerText = parseFloat(userLocation.lng).toFixed(4);
 
-        const userLngLat = [parseFloat(userLocation.lng), parseFloat(userLocation.lat)];
-        if (userMarker) {
-            userMarker.setLngLat(userLngLat);
-        } else {
-            userMarker = new mapboxgl.Marker({ color: '#FF0000' }) // Red marker for user
-                .setLngLat(userLngLat)
-                .addTo(map);
-            userMarker.setPopup(new mapboxgl.Popup({ offset: 25 }).setText('User')); // Add a popup with label
-        }
-    }
-           
-
+                const userLngLat = [parseFloat(userLocation.lng), parseFloat(userLocation.lat)];
+                if (userMarker) {
+                    userMarker.setLngLat(userLngLat);
+                } else {
+                    userMarker = new mapboxgl.Marker({ color: '#FF0000' }) // Red marker for user
+                        .setLngLat(userLngLat)
+                        .addTo(map);
+                    userMarker.setPopup(new mapboxgl.Popup({ offset: 25 }).setText('User')); // Add a popup with label
+                }
+            }
 
             // Sensor Data
             if (data.sensors) {
