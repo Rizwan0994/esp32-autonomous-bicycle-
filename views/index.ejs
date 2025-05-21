@@ -185,7 +185,8 @@
         let userMarker = null;
 
         // Connect to the WebSocket on the same host and port as the HTTP server
-        var websocket = new WebSocket('ws://' + window.location.hostname + '/ws');
+        var websocket = new WebSocket('wss://' + window.location.hostname + '/ws');
+
 
         websocket.onopen = function(event) {
             console.log('WebSocket connection opened');
