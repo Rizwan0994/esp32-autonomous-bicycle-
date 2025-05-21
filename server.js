@@ -60,7 +60,7 @@ app.ws('/ws', (ws, req) => {
     ws.on('message', (msg) => {
         try {
             const data = JSON.parse(msg);
-            console.log('Received from WebSocket:', data);
+           // console.log('Received from WebSocket:', data);
 
             // Forward data to all other connected web clients (dashboard)
             clients.forEach(client => {
