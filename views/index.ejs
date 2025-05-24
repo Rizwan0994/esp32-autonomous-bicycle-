@@ -387,7 +387,7 @@
             document.getElementById('battery-2-voltage').innerText = parseFloat(data.battery_2_voltage).toFixed(2);
             document.getElementById('active-battery').innerText = data.active_battery;
             if (data.type === 'image' ) {
-                console.log('Received image data:', data.type); // Debugging
+                console.log('Received image data:', data.image); // Debugging
                     var imgElem = document.getElementById('esp32-image');
                     imgElem.src = data.image; // data.data should be a base64 data URL
                     imgElem.style.display = 'block';
