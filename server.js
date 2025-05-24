@@ -43,14 +43,14 @@ app.ws('/ws', (ws, req) => {
   console.log('Client connected');
   clients.add(ws);
 
-  if (req.query.device === 'esp32') {
-    console.log('ESP32 connected, sending WiFi config');
-    ws.send(JSON.stringify({
-      command: 'wifi_config',
-      ssid: wifiConfig.ssid,
-      password: wifiConfig.password
-    }));
-  }
+  // if (req.query.device === 'esp32') {
+  //   console.log('ESP32 connected, sending WiFi config');
+  //   ws.send(JSON.stringify({
+  //     command: 'wifi_config',
+  //     ssid: wifiConfig.ssid,
+  //     password: wifiConfig.password
+  //   }));
+  // }
 
   ws.on('message', async (msg) => {
     let data;
