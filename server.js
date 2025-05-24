@@ -4,154 +4,146 @@ const ejs = require('ejs');
 const path = require('path');
 const bodyParser = require('body-parser');
 const fs = require('fs');
+const axios = require('axios');
 
+// Server config
 const app = express();
-expressWs(app); // Apply WebSocket middleware
-const port = 80; // Standard HTTP port
+expressWs(app);
+const port = 80;
 
-// Configuration file for WiFi credentials
-const WIFI_CONFIG_PATH = path.join(__dirname, 'wifi_config.json');
-
-// --- Middleware ---
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public'))); // Serve static files from 'public' directory
+app.use(bodyParser.json({ limit: '10mb' })); // to handle large base64 images
+app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views')); // EJS templates are in the 'views' directory
+app.set('views', path.join(__dirname, 'views'));
 
-// In-memory storage for connected WebSocket clients
+const WIFI_CONFIG_PATH = path.join(__dirname, 'wifi_config.json');
 const clients = new Set();
 
-// Default WiFi credentials (can be overridden by wifi_config.json)
 let wifiConfig = {
-    ssid: "abdullah",
-    password: "12345678"
+  ssid: 'abdullah',
+  password: '12345678'
 };
 
-// Load WiFi configuration from file if it exists
+// Load or create WiFi config
 if (fs.existsSync(WIFI_CONFIG_PATH)) {
-    try {
-        const rawConfig = fs.readFileSync(WIFI_CONFIG_PATH, 'utf8');
-        wifiConfig = JSON.parse(rawConfig);
-        console.log('Loaded WiFi config from file:', wifiConfig);
-    } catch (err) {
-        console.error('Error loading WiFi config file:', err);
-    }
+  try {
+    wifiConfig = JSON.parse(fs.readFileSync(WIFI_CONFIG_PATH, 'utf8'));
+    console.log('Loaded WiFi config:', wifiConfig);
+  } catch (e) {
+    console.error('Failed to read WiFi config:', e);
+  }
 } else {
-    // Save default config if file doesn't exist
-    fs.writeFileSync(WIFI_CONFIG_PATH, JSON.stringify(wifiConfig, null, 2), 'utf8');
-    console.log('Created default WiFi config file.');
+  fs.writeFileSync(WIFI_CONFIG_PATH, JSON.stringify(wifiConfig, null, 2));
+  console.log('Created default WiFi config.');
 }
 
-// --- WebSocket Handling ---
+// WebSocket route
 app.ws('/ws', (ws, req) => {
-    console.log('WebSocket client connected');
-    clients.add(ws);
+  console.log('Client connected');
+  clients.add(ws);
 
-    // Send initial WiFi config to newly connected ESP32 client
-    if (req.query.device === 'esp32') {
-        console.log('ESP32 connected. Sending WiFi config.');
-        ws.send(JSON.stringify({
-            command: 'wifi_config',
-            ssid: wifiConfig.ssid,
-            password: wifiConfig.password
-        }));
+  if (req.query.device === 'esp32') {
+    console.log('ESP32 connected, sending WiFi config');
+    ws.send(JSON.stringify({
+      command: 'wifi_config',
+      ssid: wifiConfig.ssid,
+      password: wifiConfig.password
+    }));
+  }
+
+  ws.on('message', async (msg) => {
+    let data;
+    try {
+      data = JSON.parse(msg);
+    } catch (err) {
+      return console.warn('Invalid JSON from client:', msg);
     }
-
-    ws.on('message', (msg) => {
-        try {
-            const data = JSON.parse(msg);
-           // console.log('Received from WebSocket:', data);
-
-            // Forward data to all other connected web clients (dashboard)
-            clients.forEach(client => {
-                if (client !== ws) { // Don't send back to the sender
-                    client.send(JSON.stringify(data));
-                }
-            });
-
-            // Handle commands from the web UI to be sent to ESP32
-            if (data.command) {
-                // Assuming ESP32 client identifies itself or we use separate WebSocket endpoints
-                // For simplicity, let's assume we send all commands to the single ESP32 client
-                // In a multi-device setup, you'd need a way to identify the ESP32's WebSocket
-                clients.forEach(client => {
-                    if (client === ws || req.query.device === 'esp32') { // This condition is a bit loose, better to identify ESP32
-                        // If the message came from ESP32, no need to send it back to itself as a command
-                        // If it came from web UI, then send it to ESP32
-                        // This logic needs refinement for proper routing
-                        // For now, let's just forward to ESP32 specifically.
-                        // A dedicated ESP32 client variable would be better.
-                    }
-                });
-            }
-
-        } catch (error) {
-            console.error('Failed to parse WebSocket message:', msg, error);
-        }
-    });
-
-    ws.on('close', () => {
-        console.log('WebSocket client disconnected');
-        clients.delete(ws);
-    });
-
-    ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
-    });
-});
-
-// Function to send data to all connected web clients
-function sendDataToWebClients(data) {
-    clients.forEach(client => {
-        // Only send to web clients (not the ESP32)
-        // This requires differentiating clients, e.g., by adding a query param or origin check
-        // For this example, we'll assume all non-ESP32 connections are web clients
-        if (client.readyState === client.OPEN) {
-            client.send(JSON.stringify(data));
-        }
-    });
-}
-
-// --- HTTP Routes ---
-
-// Dashboard page
-app.get('/', (req, res) => {
-    res.render('index', { wifiConfig }); // Pass wifiConfig to the EJS template
-});
-
-// Route to handle Wi-Fi credential updates
-app.post('/update-wifi', (req, res) => {
-    const { ssid, password } = req.body;
-    if (ssid && password) {
-        wifiConfig.ssid = ssid;
-        wifiConfig.password = password;
-
-        fs.writeFile(WIFI_CONFIG_PATH, JSON.stringify(wifiConfig, null, 2), 'utf8', (err) => {
-            if (err) {
-                console.error('Error saving WiFi config:', err);
-                return res.status(500).send('Error saving WiFi configuration.');
-            }
-            console.log('WiFi credentials updated and saved:', wifiConfig);
-            // Optionally, send update to ESP32 here if it's connected
-            clients.forEach(client => {
-                // If it's an ESP32 client (you'd need a way to identify it)
-                // For now, it sends to all, and ESP32 will handle 'wifi_config' command
-                if (client.readyState === client.OPEN) {
-                    client.send(JSON.stringify({
-                        command: 'wifi_config',
-                        ssid: wifiConfig.ssid,
-                        password: wifiConfig.password
-                    }));
-                }
-            });
-            res.redirect('/'); // Redirect back to the dashboard
+ console.log('Received image data from client:',data.type);
+    // Handle image processing
+    if (data.type === 'image' && data.data) {
+          for (const client of clients) {
+      if (client !== ws && client.readyState === client.OPEN) {
+        client.send(JSON.stringify(data));
+      }
+    }
+      try {
+        // Send image to Python detection service
+        const response = await axios.post('https://c739-2407-d000-a-96a8-60f7-2f04-b183-25c3.ngrok-free.app/detect', {
+          image: data.data
+        }, {
+          timeout: 5000
         });
+
+        const predictions = response.data; // Array of detected objects
+
+        const obstacleDetected = predictions.length > 0;
+        const command = obstacleDetected
+          ? { action: 'STOP', reason: 'obstacle_detected', details: predictions,image: data.data,type:'image' }
+          : { action: 'GO', reason: 'clear_path' ,image: data.data ,type:'image'};
+
+        const commandStr = JSON.stringify(command);
+
+        for (const client of clients) {
+          if (client.readyState === client.OPEN) {
+            client.send(commandStr);
+          }
+        }
+      } catch (err) {
+        console.error('Detection service error:', err.message);
+      }
     } else {
-        res.status(400).send('SSID and Password are required.');
+      // Forward normal messages to others
+      for (const client of clients) {
+        if (client !== ws && client.readyState === client.OPEN) {
+          client.send(JSON.stringify(data));
+        }
+      }
     }
+  });
+
+  ws.on('close', () => {
+    console.log('Client disconnected');
+    clients.delete(ws);
+  });
+
+  ws.on('error', (err) => {
+    console.error('WebSocket error:', err);
+  });
 });
 
-// Start the server
+// UI route
+app.get('/', (req, res) => {
+  res.render('index', { wifiConfig });
+});
+
+// WiFi update route
+app.post('/update-wifi', (req, res) => {
+  const { ssid, password } = req.body;
+  if (!ssid || !password) return res.status(400).send('SSID and Password are required.');
+
+  wifiConfig = { ssid, password };
+  fs.writeFile(WIFI_CONFIG_PATH, JSON.stringify(wifiConfig, null, 2), (err) => {
+    if (err) {
+      console.error('Failed to save WiFi config:', err);
+      return res.status(500).send('Failed to save WiFi config.');
+    }
+
+    // Notify ESP32 clients
+    for (const client of clients) {
+      if (client.readyState === client.OPEN) {
+        client.send(JSON.stringify({
+          command: 'wifi_config',
+          ssid: wifiConfig.ssid,
+          password: wifiConfig.password
+        }));
+      }
+    }
+
+    res.redirect('/');
+  });
+});
+
 app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+  console.log(`Server running at http://localhost:${port}`);
 });
