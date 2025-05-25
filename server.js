@@ -69,7 +69,7 @@ app.ws('/ws', (ws, req) => {
     }
       try {
         // Send image to Python detection service
-        const response = await axios.post('https://c739-2407-d000-a-96a8-60f7-2f04-b183-25c3.ngrok-free.app/detect', {
+        const response = await axios.post(' https://77d8-2407-d000-a-96a8-69c4-4d51-2672-c3e3.ngrok-free.app/detect', {
           image: data.data
         }, {
           timeout: 5000
