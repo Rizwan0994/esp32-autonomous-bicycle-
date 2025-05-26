@@ -397,7 +397,7 @@
 
                 document.getElementById('rear-alert-message').innerText = data.action;
                 if (data.action === 'STOP') {
-                    document.getElementById('emergency-stop-btn').click();
+                    document.getElementById('.navigation-controls button[onclick*="stop"]').click();
                 } else if (data.action === 'GO') {
                     document.querySelector('.navigation-controls button[onclick*="forward"]').click();
                 }
